@@ -1,0 +1,46 @@
+myFrontendApp/
+│
+├── App.tsx
+├── app.json
+├── package.json
+├── tsconfig.json
+├── babel.config.js
+├── metro.config.js
+├── .gitignore
+│
+├── assets/
+│   ├── icon.png
+│   ├── splash.png
+│   └── images/
+│       └── logo.png
+│
+├── src/
+│   ├── components/
+│   │   ├── Header.tsx
+│   │   ├── ButtonPrimary.tsx
+│   │   └── Card.tsx
+│   │
+│   ├── screens/
+│   │   ├── HomeScreen.tsx
+│   │   ├── ReportScreen.tsx
+│   │   └── ProfileScreen.tsx
+│   │
+│   ├── navigation/
+│   │   └── AppNavigator.tsx
+│   │
+│   ├── services/
+│   │   ├── api.ts
+│   │   └── auth.ts
+│   │
+│   ├── contexts/
+│   │   └── UserContext.tsx
+│   │
+│   ├── styles/
+│   │   ├── colors.ts
+│   │   └── globalStyles.ts
+│   │
+│   └── utils/
+│       ├── helpers.ts
+│       └── constants.ts
+│
+└── README.md
