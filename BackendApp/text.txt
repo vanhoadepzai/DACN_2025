@@ -1,0 +1,18 @@
+myBackendApp/
+│
+├── Controllers/         → Chứa các file API Controller (.cs)
+│     └── UserController.cs
+│
+├── Models/              → Chứa các lớp dữ liệu (Entity, DTO)
+│     └── User.cs
+│
+├── Data/                → Chứa DbContext và cấu hình CSDL
+│     └── AppDbContext.cs
+│
+├── Properties/
+│     └── launchSettings.json
+│
+├── appsettings.json     → File cấu hình
+├── Program.cs           → Điểm khởi chạy ứng dụng
+├── myBackendApp.csproj  → File cấu hình project
+└── bin/, obj/           → Sinh tự động khi build
