@@ -11,11 +11,22 @@ import {
 import { useRouter } from 'expo-router';
 import IncidentItem, { Incident } from '../../components/IncidentItem';
 import { TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../constants/config';
+
 export default function HomeScreen() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [userIncidents, setUserIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+   const incidentTypes = [
+     { label: 'Hư hỏng đường sá', value: 1 },
+     { label: 'Tai nạn giao thông', value: 2 },
+     { label: 'Tắc nghẽn giao thông', value: 3 },
+     { label: 'Phong tỏa', value: 4 },
+     { label: 'Vật cản bất ngờ', value: 5 },
+   ];
 
   const mockData: Incident[] = [
     {
@@ -70,50 +81,76 @@ export default function HomeScreen() {
   ];
 
   const fetchIncidents = async (isRefreshing = false) => {
-    try {
-      if (!isRefreshing) {
-        setLoading(true);
-      }
+      try {
+        if (!isRefreshing) setLoading(true);
 
-      // Simulate API call
-      setTimeout(() => {
-        setIncidents(mockData);
+        // Get current user info from AsyncStorage
+        const storedUser = await AsyncStorage.getItem('currentUser');
+        let currentUserId = 0;
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          currentUserId = user.id;
+        }
+
+        const response = await fetch(`${API_URL}/api/AccidentReports`);
+        if (!response.ok) throw new Error('Failed to fetch incidents');
+
+        const data = await response.json();
+
+        // Map API response to Incident type
+        const apiIncidents: Incident[] = data.map((item: any) => {
+          const typeLabel = incidentTypes.find(t => t.value === item.Type)?.label || `Loại ${item.Type}`;
+
+          return {
+            id: 6 + item.id,
+            title: item.comment,
+            description: item.comment,
+            status: 'pending', // map status if available
+            createdAt: '30/11/2025',
+            updatedAt: '20/11/2025',
+            pictureUrl: item.PictureUrl,
+            userId: item.UserId,
+          };
+        });
+
+
+        setIncidents([...mockData, ...apiIncidents]); // Keep old mock data + API data
+        setUserIncidents(apiIncidents.filter(i => i.userId === currentUserId)); // Only current user's incidents
+      } catch (error) {
+        console.error('Error fetching incidents:', error);
+        setIncidents(mockData); // fallback to mock
+        setUserIncidents([]);
+      } finally {
         setLoading(false);
         setRefreshing(false);
-      }, 1000);
+      }
+    };
 
-    } catch (error) {
-      console.error('Lỗi khi tải dữ liệu:', error);
-      setIncidents(mockData);
-      setLoading(false);
-      setRefreshing(false);
+    const onRefresh = () => {
+      setRefreshing(true);
+      fetchIncidents(true);
+    };
+
+    useEffect(() => {
+      fetchIncidents();
+    }, []);
+
+    const navigateToReport = () => {
+      router.push('/pageUser/modal');
+    };
+
+    const navigateToIncidentDetail = (incidentId: number) => {
+      router.push(`/incident/${incidentId}`);
+    };
+
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text>Đang tải...</Text>
+        </View>
+      );
     }
-  };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchIncidents(true);
-  };
-
-  useEffect(() => {
-    fetchIncidents();
-  }, []);
-
-  const navigateToReport = () => {
-    router.push('/pageUser/modal');
-  };
-
-  const navigateToIncidentDetail = (incidentId: number) => {
-    router.push(`/incident/${incidentId}`);
-  };
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text>Đang tải...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -143,9 +180,9 @@ export default function HomeScreen() {
         }
         showsVerticalScrollIndicator={true}
       >
-        {/* Section: Sự cố của tôi */}
+        {/* Section: Sự cố đang xảy ra */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sự cố của tôi</Text>
+          <Text style={styles.sectionTitle}>Sự cố đang xảy ra</Text>
 
           {incidents.length > 0 ? (
             incidents.map((incident) => (
