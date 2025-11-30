@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,14 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { API_URL } from '../../constants/config';
 import { ThemeProvider } from "../SettingsUser/light_black";
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export default function ReportModal() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -21,47 +25,117 @@ export default function ReportModal() {
     address: '',
   });
   const [loading, setLoading] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [user, setUser] = useState<{ id: number } | null>(null);
 
   const incidentTypes = [
-    'Hư hỏng đường sá',
-    'Mất điện',
-    'Cấp nước',
-    'Vệ sinh môi trường',
-    'Cây xanh',
-    'Khác'
+    { label: 'Hư hỏng đường sá', value: 1 },
+    { label: 'Tai nạn giao thông', value: 2 },
+    { label: 'Tắc nghẽn giao thông', value: 3 },
+    { label: 'Phong tỏa', value: 4 },
+    { label: 'Vật cản bất ngờ', value: 5 },
   ];
 
+  // Load logged-in user from AsyncStorage
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userJson = await AsyncStorage.getItem('currentUser');
+        if (userJson) {
+          setUser(JSON.parse(userJson));
+        }
+      } catch (error) {
+        console.error('Failed to load user from storage', error);
+      }
+    };
+    loadUser();
+  }, []);
+
+  // Camera
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền bị từ chối', 'Cần quyền truy cập camera để chụp ảnh.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  // Gallery
+  const openGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền bị từ chối', 'Cần quyền truy cập thư viện để chọn ảnh.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
   const handleSubmit = async () => {
+    if (!user) {
+      Alert.alert('Lỗi', 'Bạn chưa đăng nhập');
+      return;
+    }
+
     if (!formData.type || !formData.title || !formData.description || !formData.address) {
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
 
+    if (!imageUri) {
+      Alert.alert('Lỗi', 'Vui lòng thêm ảnh.');
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const response = await fetch(`${API_URL}/incidents`, {
+      const form = new FormData();
+      form.append('userId', user.id.toString());
+      form.append('type', formData.type);
+      form.append('location', formData.address);
+      form.append('comment', formData.description);
+      form.append('rating', '5'); // optional
+
+      const filename = imageUri.split('/').pop(); // extract filename
+      const match = /\.(\w+)$/.exec(filename || '');
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      form.append('picture', {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+
+      const response = await fetch(`${API_URL}/api/AccidentReports/upload`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          status: 'pending',
-          createdAt: new Date().toISOString(),
-        }),
+        headers: { 'Accept': 'application/json' }, // DO NOT set Content-Type
+        body: form,
       });
 
       if (response.ok) {
         Alert.alert('Thành công', 'Báo cáo đã được gửi thành công', [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
+          { text: 'OK', onPress: () => router.back() },
         ]);
       } else {
+        const errorText = await response.text();
+        console.error('API error:', errorText);
         throw new Error('Gửi báo cáo thất bại');
       }
     } catch (error) {
+      console.error('Submit error:', error);
       Alert.alert('Lỗi', 'Không thể gửi báo cáo. Vui lòng thử lại.');
     } finally {
       setLoading(false);
@@ -85,21 +159,22 @@ export default function ReportModal() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeContainer}>
             {incidentTypes.map((type) => (
               <TouchableOpacity
-                key={type}
+                key={type.value}
                 style={[
-                  styles.typeButton,
-                  formData.type === type && styles.typeButtonSelected,
+                    styles.typeButton,
+                    formData.type === type.value && styles.typeButtonSelected,
                 ]}
-                onPress={() => setFormData({ ...formData, type })}
+                onPress={() => setFormData({ ...formData, type: type.value })}
               >
                 <Text
                   style={[
                     styles.typeButtonText,
-                    formData.type === type && styles.typeButtonTextSelected,
+                    formData.type === type.value && styles.typeButtonTextSelected,
                   ]}
                 >
-                  {type}
+                  {type.label}
                 </Text>
+
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -127,13 +202,21 @@ export default function ReportModal() {
           {/* Ảnh/Video */}
           <Text style={styles.label}>Thêm ảnh/video</Text>
           <View style={styles.photoButtons}>
-            <TouchableOpacity style={styles.photoButton}>
+            <TouchableOpacity style={styles.photoButton} onPress={openCamera}>
               <Text style={styles.photoButtonText}>Chụp ảnh</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.photoButton}>
+            <TouchableOpacity style={styles.photoButton} onPress={openGallery}>
               <Text style={styles.photoButtonText}>Từ thư viện</Text>
             </TouchableOpacity>
           </View>
+
+          {imageUri && (
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: 100, height: 100, marginTop: 12, borderRadius: 8 }}
+            />
+          )}
+
 
           {/* Địa chỉ */}
           <Text style={styles.label}>Địa chỉ cụ thể *</Text>

@@ -1,0 +1,6 @@
+@TuTiProject_HostAddress = http://localhost:5254
+
+GET {{TuTiProject_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

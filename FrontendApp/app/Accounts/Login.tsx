@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-
+import { API_URL } from '../../constants/config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AccountTest =
     [{
@@ -44,39 +45,77 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const router = useRouter();
 
-    const handleLogin = () => {
+// make sure this points to your API file
 
-        console.log('Login với:', email, password);
-        // Kiểm tra thông tin đăng nhập
-        const account = AccountTest.find(
-            acc => acc.email === email && acc.password === password
-        );
-        // phân quyền login
-        if (account) {
-            Alert.alert(
-                'Đăng nhập thành công',
-                `Chào mừng ${account.name} đến với TuTi`,
-                [{
-                    text: `Ok`, onPress: () => {
-                        if (account.role === 'Admin') {
-                            router.replace('/pageAdmin/HomeAdmin');
-                        } else if (account.role === 'User') {
-                            router.replace('/pageUser/HomePage');
-                        } else if (account.role === 'employyer') {
-                            router.replace('/pageStaffAction/StaffHome');
-                        }
-                    }
+    const handleLogin = async () => {
+      console.log('Trying login with:', email, password);
 
-                }]
-            );
-            console.log('Use logged in :', account);
+      let loggedInUser = null;
+
+      try {
+        const response = await fetch(`${API_URL}/api/Users/login`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (response.ok) {
+          const user = await response.json();
+          await AsyncStorage.setItem('currentUser', JSON.stringify(user));
+          if (user && user.id) {
+            loggedInUser = user; // API login success
+            console.log('API login success:', user);
+          } else {
+            console.warn('API returned no user, fallback to mock');
+          }
         } else {
-            Alert.alert(
-                'Đăng nhập thất bại',
-                'Email hoặc mật khẩu không đúng. Vui lòng thử lại'
-            );
+          console.warn('API login failed with status', response.status);
         }
+      } catch (error) {
+        console.error('Login API error:', error);
+      }
+
+      // If API failed or returned no user, fallback to mock
+      if (!loggedInUser) {
+        const account = AccountTest.find(
+          acc => acc.email === email && acc.password === password
+        );
+
+        if (account) {
+          loggedInUser = account;
+          console.log('Logged in with mock data:', account);
+        }
+      }
+
+      // If still no user, show error
+      if (!loggedInUser) {
+        Alert.alert('Đăng nhập thất bại', 'Email hoặc mật khẩu không đúng. Vui lòng thử lại');
+        return;
+      }
+
+      // Navigate based on role
+      Alert.alert(
+        'Đăng nhập thành công',
+        `Chào mừng ${loggedInUser.name} đến với TuTi`,
+        [{
+          text: 'Ok',
+          onPress: () => {
+            if (loggedInUser.role === '2' || loggedInUser.role === 2) {
+              router.replace('/pageAdmin/HomeAdmin');
+            } else if (loggedInUser.role === '0' || loggedInUser.role === 0) {
+              router.replace('/pageUser/HomePage');
+            } else if (loggedInUser.role === '1' || loggedInUser.role === 1) {
+              router.replace('/pageStaffAction/StaffHome');
+            }
+          }
+        }]
+      );
     };
+
+
 
     return (
         <KeyboardAvoidingView
