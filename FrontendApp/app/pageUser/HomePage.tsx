@@ -86,11 +86,11 @@ export default function HomeScreen() {
 
         // Get current user info from AsyncStorage
         const storedUser = await AsyncStorage.getItem('currentUser');
-        let currentUserId = 0;
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          currentUserId = user.id;
-        }
+            let currentUserId = 0;
+            if (storedUser) {
+              const user = JSON.parse(storedUser);
+              currentUserId = user.id;
+            }
 
         const response = await fetch(`${API_URL}/api/AccidentReports`);
         if (!response.ok) throw new Error('Failed to fetch incidents');

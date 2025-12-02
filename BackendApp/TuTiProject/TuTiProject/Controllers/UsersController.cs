@@ -47,12 +47,5 @@ namespace TuTiProject.Controllers
             return Ok(new { message = "Password changed successfully" });
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var user = await _userService.GetById(id);
-            if (user == null) return NotFound();
-            return Ok(user);
-        }
     }
 }

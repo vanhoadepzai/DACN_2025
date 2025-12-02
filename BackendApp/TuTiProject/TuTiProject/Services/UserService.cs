@@ -81,13 +81,6 @@ namespace TuTiProject.Services
             return true;
         }
 
-        // Get user by Id
-        public async Task<UserResponseDto> GetById(int userId)
-        {
-            var user = await _context.Users.FindAsync(userId);
-            return user == null ? null : MapToDto(user);
-        }
-
         // Map User to DTO
         private UserResponseDto MapToDto(User user)
         {

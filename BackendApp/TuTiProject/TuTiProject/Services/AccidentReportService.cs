@@ -26,6 +26,7 @@ namespace TuTiProject.Services
 
         public async Task<AccidentReportDto> CreateAccidentReportAsync(
             int userId,
+            string title,
             double rating,
             int type,
             string location,
@@ -35,15 +36,12 @@ namespace TuTiProject.Services
             // Validate inputs
             if (string.IsNullOrWhiteSpace(location))
                 throw new ArgumentException("Location is required.");
-
-            if (rating < 0 || rating > 5)
-                throw new ArgumentException("Rating must be between 0 and 5.");
-
             if (type < 1 || type > 5)
                 throw new ArgumentException("Type must be between 1 and 5.");
-
             if (pictureFile == null || pictureFile.Length == 0)
                 throw new ArgumentException("Picture file is required.");
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Title is required.");
 
             // Save picture to local machine
             var pictureUrl = await SavePictureAsync(pictureFile);
@@ -52,8 +50,10 @@ namespace TuTiProject.Services
             var accidentReport = new AccidentReport
             {
                 UserId = userId,
+                Title = title,
                 Rating = rating,
                 Type = type,
+                DeviceId="Luan",
                 Location = location,
                 PictureUrl = pictureUrl,
                 Comment = comment,
@@ -62,7 +62,6 @@ namespace TuTiProject.Services
 
             _context.AccidentReports.Add(accidentReport);
             await _context.SaveChangesAsync();
-
             return MapToResponseDto(accidentReport);
         }
 
@@ -79,7 +78,7 @@ namespace TuTiProject.Services
         public async Task<IEnumerable<AccidentReportDto>> GetAccidentReportsByUserIdAsync(int userId)
         {
             var reports = await _context.AccidentReports
-                .Where(r => r.UserId == userId)
+                .Where(r => r.UserId == userId||r.EmployeeId==userId)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
 
@@ -95,50 +94,53 @@ namespace TuTiProject.Services
             return reports.Select(MapToResponseDto);
         }
 
-        public async Task<bool> DeleteAccidentReportAsync(int id)
+        public async Task<bool> UpdateAccidentReport(int accidentId,
+            string title,
+            double rating,
+            int type,
+            string location,
+            string comment,
+            IFormFile pictureFile)
         {
-            var report = await _context.AccidentReports.FindAsync(id);
+            if (string.IsNullOrWhiteSpace(location))
+                throw new ArgumentException("Location is required.");
+            if (type < 1 || type > 5)
+                throw new ArgumentException("Type must be between 1 and 5.");
+            if (pictureFile == null || pictureFile.Length == 0)
+                throw new ArgumentException("Picture file is required.");
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Title is required.");
 
-            if (report == null)
+            var pictureUrl = await SavePictureAsync(pictureFile);
+            var accidentReport = _context.AccidentReports.FirstOrDefault(a => a.Id == accidentId);
+            if (accidentReport == null)
                 return false;
-
-            // Delete picture file
-            if (!string.IsNullOrWhiteSpace(report.PictureUrl))
+            else
             {
-                await DeletePictureAsync(report.PictureUrl);
+                accidentReport.Title = title;
+                accidentReport.Rating = rating;
+                accidentReport.Type = type;
+                accidentReport.Location = location;
+                accidentReport.PictureUrl = pictureUrl;
+                accidentReport.Comment = comment;
+                accidentReport.UpdatedAt = DateTime.UtcNow;
             }
+            ;
 
-            _context.AccidentReports.Remove(report);
+            _context.AccidentReports.Add(accidentReport);
             await _context.SaveChangesAsync();
-
             return true;
         }
-
-        public async Task<AccidentReportDto> UpdateAccidentReportAsync(int id, AccidentReportDto updateDto)
+        public async Task<bool> AssignEmployee(int accidentId, int employeeId)
         {
-            var report = await _context.AccidentReports.FindAsync(id);
-
+            var report = await _context.AccidentReports.FindAsync(accidentId);
             if (report == null)
-                throw new KeyNotFoundException($"Accident report with ID {id} not found.");
-
-            if (!string.IsNullOrWhiteSpace(updateDto.Location))
-                report.Location = updateDto.Location;
-
-            if (updateDto.Rating >= 0 && updateDto.Rating <= 5)
-                report.Rating = updateDto.Rating;
-
-            if (updateDto.Type >= 1 && updateDto.Type <= 5)
-                report.Type = updateDto.Type;
-
-            if (!string.IsNullOrWhiteSpace(updateDto.Comment))
-                report.Comment = updateDto.Comment;
-
-            _context.AccidentReports.Update(report);
+                return false;
+            report.EmployeeId = employeeId;
+            report.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
-
-            return MapToResponseDto(report);
+            return true;
         }
-
         // Helper Methods
         private async Task<string> SavePictureAsync(IFormFile pictureFile)
         {
@@ -173,41 +175,21 @@ namespace TuTiProject.Services
             var baseUrl = $"{_httpContextAccessor.HttpContext.Request.Scheme}://{_httpContextAccessor.HttpContext.Request.Host}";
             return $"{baseUrl}/{UploadsFolder}/{fileName}";
         }
-
-        private async Task DeletePictureAsync(string pictureUrl)
-        {
-            try
-            {
-                // Extract filename from URL
-                var fileName = Path.GetFileName(pictureUrl);
-                var filePath = Path.Combine(_hostEnvironment.WebRootPath, UploadsFolder, fileName);
-
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't throw - file deletion failure shouldn't break the operation
-                Console.WriteLine($"Error deleting picture: {ex.Message}");
-            }
-        }
-
         private AccidentReportDto MapToResponseDto(AccidentReport report)
         {
             return new AccidentReportDto
             {
                 Id = report.Id,
                 UserId = report.UserId,
+                Title = report.Title,
+                EmployeeId = report.EmployeeId,
                 Rating = report.Rating,
                 Type = report.Type,
                 Location = report.Location,
                 PictureUrl = report.PictureUrl,
                 Comment = report.Comment,
-                CreatedAt = report.CreatedAt
+                CreatedAt = report.CreatedAt,
+                UpdatedAt = report.UpdatedAt
             };
         }
     }

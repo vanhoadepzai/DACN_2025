@@ -102,18 +102,19 @@ export default function ReportModal() {
     setLoading(true);
 
     try {
-      const form = new FormData();
-      form.append('userId', user.id.toString());
-      form.append('type', formData.type);
-      form.append('location', formData.address);
-      form.append('comment', formData.description);
-      form.append('rating', '5'); // optional
+        const form = new FormData();
+        form.append('UserId', user.id.toString());
+        form.append('Title', formData.title);
+        form.append('Type', formData.type);
+        form.append('Location', formData.address);
+        form.append('Comment', formData.description);
+        form.append('Rating', '5');
 
       const filename = imageUri.split('/').pop(); // extract filename
       const match = /\.(\w+)$/.exec(filename || '');
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      form.append('picture', {
+      form.append('Picture', {
         uri: imageUri,
         name: filename,
         type,
