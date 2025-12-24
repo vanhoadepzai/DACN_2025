@@ -1,81 +1,131 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { API_URL } from '../../constants/config';
 
-// Mock data (same as your HomeScreen)
-const mockIncidents = [
-  {
-    id: 1,
-    title: 'Hố sâu đường',
-    description: 'Đường bị hư hỏng nặng tạo thành hố sâu nguy hiểm',
-    status: 'resolved',
-    createdAt: '05/10/2025',
-    updatedAt: '10/10/2025',
-    pictureUrl: 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fdantri.com.vn%2Fthoi-su%2Fho-sau-bat-ngo-xuat-hien-tren-duong-1363753344.htm&psig=AOvVaw0x2dCoanVBWeMRKBdwxePe&ust=1764575222546000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCLDaqIyxmZEDFQAAAAAdAAAAABAE',
-  },
-  {
-    id: 2,
-    title: 'Cây đổ chắn đường',
-    description: 'Cây xanh bị đổ sau cơn bão, chắn lối đi lại',
-    status: 'pending',
-    createdAt: '04/10/2025',
-    updatedAt: '03/11/2025',
-    pictureUrl: 'https://media-cdn-v2.laodong.vn/Storage/NewsPortal/2021/7/17/931491/Cay-Ba-Goc-Ha-Noi.jpg',
-  },
-  {
-    id: 3,
-    title: 'Hư hỏng mặt đường',
-    description: 'Mặt đường bị nứt vỡ, cần sửa chữa kịp thời',
-    status: 'received',
-    createdAt: '03/10/2025',
-    updatedAt: '03/11/2025',
-    pictureUrl: 'https://xaydungdaithanh.vn/wp-content/uploads/2022/03/hu-hong-nut-cao-su.jpg',
-  },
-  {
-    id: 4,
-    title: 'Đèn đường hỏng',
-    description: 'Đèn đường không sáng, gây nguy hiểm ban đêm',
-    status: 'pending',
-    createdAt: '02/10/2025',
-    updatedAt: '03/11/2025',
-    pictureUrl: 'https://i.pravatar.cc/200?img=4',
-  },
-  {
-    id: 5,
-    title: 'Ống nước vỡ',
-    description: 'Ống nước bị vỡ, nước chảy tràn ra đường',
-    status: 'received',
-    createdAt: '01/10/2025',
-    updatedAt: '03/11/2025',
-    pictureUrl: 'https://i.pravatar.cc/200?img=5',
-  },
-  {
-    id: 6,
-    title: 'Biển báo giao thông hư',
-    description: 'Biển báo giao thông bị hư hỏng, nghiêng ngả',
-    status: 'resolved',
-    createdAt: '30/09/2025',
-    updatedAt: '10/10/2025',
-    pictureUrl: 'https://i.pravatar.cc/200?img=6',
-  },
-];
+// Define the Incident type
+interface Incident {
+  id: number;
+  title: string;
+  description: string;
+  status: 'pending' | 'received' | 'resolved';
+  type: number;
+  typeLabel: string;
+  location: string;
+  createdAt: string;
+  updatedAt: string;
+  pictureUrl: string;
+  userId: number;
+  employeeId: number;
+}
 
 export default function IncidentDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [incident, setIncident] = useState<typeof mockIncidents[0] | null>(null);
+  const [incident, setIncident] = useState<Incident | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const incidentTypes = [
+    { label: 'Hư hỏng đường sá', value: 1 },
+    { label: 'Tai nạn giao thông', value: 2 },
+    { label: 'Tắc nghẽn giao thông', value: 3 },
+    { label: 'Phong tỏa', value: 4 },
+    { label: 'Vật cản bất ngờ', value: 5 },
+  ];
+
+  const ratingStatusMap: Record<number, 'pending' | 'received' | 'resolved'> = {
+    5: 'pending',
+    3: 'received',
+    1: 'resolved',
+  };
+
+  const getStatusFromRating = (rating: number): 'pending' | 'received' | 'resolved' => {
+    return ratingStatusMap[rating] || 'pending';
+  };
+
+  const getStatusLabel = (status: string): string => {
+    switch (status) {
+      case 'pending': return 'Đang chờ';
+      case 'received': return 'Đã tiếp nhận';
+      case 'resolved': return 'Đã xử lý';
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'pending': return '#FFA500';
+      case 'received': return '#007AFF';
+      case 'resolved': return '#34C759';
+      default: return '#666';
+    }
+  };
+
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return 'Chưa cập nhật';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
   useEffect(() => {
-    // Find the incident by id
-    const incidentId = Number(id);
-    const found = mockIncidents.find(item => item.id === incidentId);
-    setIncident(found || null);
+    const fetchIncident = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_URL}/api/AccidentReports/${id}`);
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch incident');
+        }
+
+        const item = await response.json();
+        const typeLabel = incidentTypes.find(t => t.value === item.type)?.label || `Loại ${item.type}`;
+
+        const mappedIncident: Incident = {
+          id: item.id,
+          title: item.title || 'Không có tiêu đề',
+          description: item.comment,
+          type: item.type,
+          typeLabel: typeLabel,
+          status: getStatusFromRating(item.rating),
+          location: item.location,
+          createdAt: formatDate(item.createdAt),
+          updatedAt: formatDate(item.updatedAt),
+          pictureUrl: item.pictureUrl,
+          userId: item.userId,
+          employeeId: item.employeeId,
+        };
+
+        setIncident(mappedIncident);
+      } catch (err) {
+        console.error('Error fetching incident:', err);
+        setError('Không thể tải thông tin sự cố');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchIncident();
+    }
   }, [id]);
 
-  if (!incident) {
+  if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <Text>Không tìm thấy sự cố</Text>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Đang tải...</Text>
+      </View>
+    );
+  }
+
+  if (error || !incident) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>{error || 'Không tìm thấy sự cố'}</Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>← Quay lại</Text>
         </TouchableOpacity>
@@ -89,21 +139,44 @@ export default function IncidentDetail() {
         <Text style={styles.backText}>← Quay lại</Text>
       </TouchableOpacity>
 
-      <Image source={{ uri: incident.pictureUrl }} style={styles.image} />
+      {incident.pictureUrl && (
+        <Image source={{ uri: incident.pictureUrl }} style={styles.image} />
+      )}
 
       <View style={styles.content}>
         <Text style={styles.title}>{incident.title}</Text>
-        <Text style={styles.label}>Mô tả:</Text>
-        <Text style={styles.description}>{incident.description}</Text>
 
-        <Text style={styles.label}>Trạng thái:</Text>
-        <Text style={styles.status}>{incident.status}</Text>
+        <View style={styles.statusBadge}>
+          <View style={[styles.statusDot, { backgroundColor: getStatusColor(incident.status) }]} />
+          <Text style={[styles.statusText, { color: getStatusColor(incident.status) }]}>
+            {getStatusLabel(incident.status)}
+          </Text>
+        </View>
 
-        <Text style={styles.label}>Ngày tạo:</Text>
-        <Text>{incident.createdAt}</Text>
+        <View style={styles.infoSection}>
+          <Text style={styles.label}>Loại sự cố:</Text>
+          <Text style={styles.value}>{incident.typeLabel}</Text>
+        </View>
 
-        <Text style={styles.label}>Cập nhật lần cuối:</Text>
-        <Text>{incident.updatedAt}</Text>
+        <View style={styles.infoSection}>
+          <Text style={styles.label}>Mô tả:</Text>
+          <Text style={styles.description}>{incident.description}</Text>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.label}>Vị trí:</Text>
+          <Text style={styles.value}>{incident.location}</Text>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.label}>Ngày tạo:</Text>
+          <Text style={styles.value}>{incident.createdAt}</Text>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.label}>Cập nhật lần cuối:</Text>
+          <Text style={styles.value}>{incident.updatedAt}</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -118,11 +191,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    marginBottom: 16,
   },
   backButton: {
     padding: 12,
-    marginLeft: 16,
-    marginTop: 16,
+    marginLeft: 8,
+    marginTop: 50,
   },
   backText: {
     fontSize: 16,
@@ -130,28 +214,54 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 220,
+    height: 250,
     resizeMode: 'cover',
   },
   content: {
     padding: 16,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 12,
+    color: '#1a1a1a',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  infoSection: {
+    marginBottom: 16,
   },
   label: {
+    fontSize: 14,
     fontWeight: '600',
-    marginTop: 8,
+    color: '#666',
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 16,
+    color: '#333',
   },
   description: {
     fontSize: 16,
     color: '#555',
-  },
-  status: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
+    lineHeight: 24,
   },
 });
