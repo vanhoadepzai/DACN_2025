@@ -20,137 +20,108 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
-   const incidentTypes = [
-     { label: 'Hư hỏng đường sá', value: 1 },
-     { label: 'Tai nạn giao thông', value: 2 },
-     { label: 'Tắc nghẽn giao thông', value: 3 },
-     { label: 'Phong tỏa', value: 4 },
-     { label: 'Vật cản bất ngờ', value: 5 },
-   ];
 
-  const mockData: Incident[] = [
-    {
-      id: 1,
-      title: 'Hố sâu đường',
-      description: 'Đường bị hư hỏng nặng tạo thành hố sâu nguy hiểm',
-      status: 'resolved',
-      createdAt: '05/10/2025',
-      updatedAt: '10/10/2025'
-    },
-    {
-      id: 2,
-      title: 'Cây đổ chắn đường',
-      description: 'Cây xanh bị đổ sau cơn bão, chắn lối đi lại',
-      status: 'pending',
-      createdAt: '04/10/2025',
-      updatedAt: '03/11/2025'
-    },
-    {
-      id: 3,
-      title: 'Hư hỏng mặt đường',
-      description: 'Mặt đường bị nứt vỡ, cần sửa chữa kịp thời',
-      status: 'received',
-      createdAt: '03/10/2025',
-      updatedAt: '03/11/2025'
-    },
-    // THÊM NHIỀU DATA ĐỂ TEST SCROLL
-    {
-      id: 4,
-      title: 'Đèn đường hỏng',
-      description: 'Đèn đường không sáng, gây nguy hiểm ban đêm',
-      status: 'pending',
-      createdAt: '02/10/2025',
-      updatedAt: '03/11/2025'
-    },
-    {
-      id: 5,
-      title: 'Ống nước vỡ',
-      description: 'Ống nước bị vỡ, nước chảy tràn ra đường',
-      status: 'received',
-      createdAt: '01/10/2025',
-      updatedAt: '03/11/2025'
-    },
-    {
-      id: 6,
-      title: 'Biển báo giao thông hư',
-      description: 'Biển báo giao thông bị hư hỏng, nghiêng ngả',
-      status: 'resolved',
-      createdAt: '30/09/2025',
-      updatedAt: '10/10/2025'
-    }
+  const incidentTypes = [
+    { label: 'Hư hỏng đường sá', value: 1 },
+    { label: 'Tai nạn giao thông', value: 2 },
+    { label: 'Tắc nghẽn giao thông', value: 3 },
+    { label: 'Phong tỏa', value: 4 },
+    { label: 'Vật cản bất ngờ', value: 5 },
   ];
 
+  // Rating to Status mapping
+  // 5 = Đang chờ (pending), 3 = Đã tiếp nhận (received), 1 = Đã xử lý (resolved)
+  const ratingStatusMap: Record<number, 'pending' | 'received' | 'resolved'> = {
+    5: 'pending',
+    3: 'received',
+    1: 'resolved',
+  };
+
+  const getStatusFromRating = (rating: number): 'pending' | 'received' | 'resolved' => {
+    return ratingStatusMap[rating] || 'pending';
+  };
+
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const fetchIncidents = async (isRefreshing = false) => {
-      try {
-        if (!isRefreshing) setLoading(true);
+    try {
+      if (!isRefreshing) setLoading(true);
 
-        // Get current user info from AsyncStorage
-        const storedUser = await AsyncStorage.getItem('currentUser');
-        let currentUserId = 0;
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          currentUserId = user.id;
-        }
-
-        const response = await fetch(`${API_URL}/api/AccidentReports`);
-        if (!response.ok) throw new Error('Failed to fetch incidents');
-
-        const data = await response.json();
-
-        // Map API response to Incident type
-        const apiIncidents: Incident[] = data.map((item: any) => {
-          const typeLabel = incidentTypes.find(t => t.value === item.Type)?.label || `Loại ${item.Type}`;
-
-          return {
-            id: 6 + item.id,
-            title: item.comment,
-            description: item.comment,
-            status: 'pending', // map status if available
-            createdAt: '30/11/2025',
-            updatedAt: '20/11/2025',
-            pictureUrl: item.PictureUrl,
-            userId: item.UserId,
-          };
-        });
-
-
-        setIncidents([...mockData, ...apiIncidents]); // Keep old mock data + API data
-        setUserIncidents(apiIncidents.filter(i => i.userId === currentUserId)); // Only current user's incidents
-      } catch (error) {
-        console.error('Error fetching incidents:', error);
-        setIncidents(mockData); // fallback to mock
-        setUserIncidents([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+      // Get current user info from AsyncStorage
+      const storedUser = await AsyncStorage.getItem('currentUser');
+      let currentUserId = 0;
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        currentUserId = user.id;
       }
-    };
 
-    const onRefresh = () => {
-      setRefreshing(true);
-      fetchIncidents(true);
-    };
+      const response = await fetch(`${API_URL}/api/AccidentReports`);
+      if (!response.ok) throw new Error('Failed to fetch incidents');
 
-    useEffect(() => {
-      fetchIncidents();
-    }, []);
+      const data = await response.json();
 
-    const navigateToReport = () => {
-      router.push('/pageUser/modal');
-    };
+      // Map API response to Incident type
+// Map API response to Incident type
+    const apiIncidents: Incident[] = data.map((item: any) => {
+      const typeLabel = incidentTypes.find(t => t.value === item.type)?.label || `Loại ${item.type}`;
 
-    const navigateToIncidentDetail = (incidentId: number) => {
-      router.push(`/incident/${incidentId}`);
-    };
-
-    if (loading && !refreshing) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text>Đang tải...</Text>
-        </View>
-      );
+      return {
+        id: item.id,                                    // was item.Id
+        title: item.title,                              // was item.Title
+        description: item.comment,                      // was item.Comment
+        type: item.type,                                // was item.Type
+        typeLabel: typeLabel,
+        status: getStatusFromRating(item.rating),       // was item.Rating
+        location: item.location,                        // was item.Location
+        createdAt: formatDate(item.createdAt),          // was item.CreatedAt
+        updatedAt: formatDate(item.updatedAt),          // was item.UpdatedAt
+        pictureUrl: item.pictureUrl,                    // was item.PictureUrl
+        userId: item.userId,                            // was item.UserId
+      };
+    });
+      setIncidents(apiIncidents);
+      setUserIncidents(apiIncidents.filter(i => i.userId === currentUserId));
+    } catch (error) {
+      console.error('Error fetching incidents:', error);
+      setIncidents([]);
+      setUserIncidents([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  };
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchIncidents(true);
+  };
+
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const navigateToReport = () => {
+    router.push('/pageUser/modal');
+  };
+
+  const navigateToIncidentDetail = (incidentId: number) => {
+    router.push(`/incident/${incidentId}`);
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text>Đang tải...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -293,7 +264,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -303,8 +273,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   scrollContent: {
-    flexGrow: 1, // ← QUAN TRỌNG: cho phép scroll khi content dài
-    paddingBottom: 100, // ← Thêm padding để tránh bị tab bar che
+    flexGrow: 1,
+    paddingBottom: 100,
   },
   centerContainer: {
     flex: 1,
@@ -439,6 +409,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bottomSpacer: {
-    height: 50, // ← Thêm khoảng trống cuối cùng
+    height: 50,
   },
 });

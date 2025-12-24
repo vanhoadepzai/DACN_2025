@@ -11,6 +11,6 @@ namespace TuTiProject.Services
         Task<UserResponseDto> Login(UserLoginDto dto);
         Task<UserResponseDto> UpdateProfile(int userId, UserUpdateDto dto);
         Task<bool> ChangePassword(UserChangePasswordDto dto);
-        Task<UserResponseDto> GetById(int userId);
+
     }
 }

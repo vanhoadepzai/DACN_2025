@@ -28,6 +28,13 @@ namespace TuTiProject.Data
                 entity.Property(e => e.UserId)
                     .IsRequired();
 
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.EmployeeId)
+                    .IsRequired();
+
                 entity.Property(e => e.Rating)
                     .IsRequired();
 
@@ -45,11 +52,16 @@ namespace TuTiProject.Data
                 entity.Property(e => e.Comment)
                     .HasMaxLength(1000);
 
+                entity.Property(e => e.DeviceId)
+                    .HasMaxLength(200);
+
                 entity.Property(e => e.CreatedAt)
                     .IsRequired()
-                    .HasDefaultValueSql("GETUTCDATE()"); // For SQL Server
+                    .HasDefaultValueSql("GETUTCDATE()");
 
-                // Add index for UserId for faster queries
+                entity.Property(e => e.UpdatedAt);
+
+                // Index for faster queries
                 entity.HasIndex(e => e.UserId);
             });
             modelBuilder.Entity<User>(entity =>

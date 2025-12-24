@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using TuTiProject.Data;
 using TuTiProject.Interfaces;
@@ -14,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IAccidentReportService, AccidentReportService>();
 builder.Services.AddScoped<IUserService, UserService> ();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddCors(options =>
